@@ -115,9 +115,17 @@ def build_unet(
         classes=1,
         activation='sigmoid',
         use_batchnorm=True,
+        global_feature=False
 ):
     input_ = backbone.input
     x = backbone.output
+
+    if global_feature:
+        concat_axis = 3 if backend.image_data_format() == 'channels_last' else 1
+        gf = layers.GlobalAveragePooling2D()(x)
+        gf = layers.Reshape((gf.shape[0],1,1,gf.shape[1]))(gf)
+        gf = layers.UpSampling2D()(gf)
+        x = layers.Concatenate(axis=concat_axis)([x, gf])
 
     # extract skip connections
     skips = ([backbone.get_layer(name=i).output if isinstance(i, str)
@@ -171,6 +179,7 @@ def Unet(
         decoder_block_type='upsampling',
         decoder_filters=(256, 128, 64, 32, 16),
         decoder_use_batchnorm=True,
+        global_feature=False,
         **kwargs
 ):
     """ Unet_ is a fully convolution neural network for image semantic segmentation
@@ -239,6 +248,7 @@ def Unet(
         activation=activation,
         n_upsample_blocks=len(decoder_filters),
         use_batchnorm=decoder_use_batchnorm,
+        global_feature=global_feature
     )
 
     # lock encoder weights for fine-tuning
